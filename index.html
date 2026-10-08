@@ -262,8 +262,8 @@ input{font-family:inherit}
 
     <div class="card stack" style="margin-top:14px">
       <div>
-        <label class="label" for="nama">Nama penuh guru</label>
-        <input class="field" id="nama" autocomplete="name" placeholder="cth: Cikgu Aminah binti Ali" maxlength="60">
+        <label class="label" for="nama">Sila tulis nama penuh cikgu</label>
+        <input class="field" id="nama" autocomplete="name" placeholder="Cth: Aminah binti Ali" maxlength="60">
       </div>
       <button class="btn btn-primary btn-block" id="startBtn" disabled>
         Mula Menjawab
@@ -271,7 +271,7 @@ input{font-family:inherit}
       </button>
       <ul class="rules">
         <li><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2 2M9 2h6"/></svg></span><span>Masa <b>5 minit</b> bermula sebaik sahaja anda tekan <b>Mula</b>. Jawapan dihantar automatik bila masa tamat.</span></li>
-        <li><span class="ic y"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></span><span>Terkeluar? Buka semula & masukkan nama yang sama — anda <b>sambung pada soalan terakhir</b> (masa tetap berjalan).</span></li>
+        <li><span class="ic y"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></span><span>Terkeluar? Buka semula & masukkan nama yang sama, anda <b>boleh sambung menjawab</b> seperti biasa (masa tetap berjalan).</span></li>
         <li><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M16 3h5v5M4 20 21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg></span><span>Susunan soalan & pilihan <b>berbeza</b> bagi setiap guru.</span></li>
       </ul>
     </div>
@@ -606,23 +606,41 @@ function sheet(html, onMount){
   const m = $("#modal");
   m.innerHTML = `<div class="scrim"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${html}</div></div>`;
   const sc = m.firstChild;
-  sc.addEventListener("click", e=>{ if(e.target===sc || e.target.closest("[data-close]")) closeSheet(); });
+  sheetOpenedAt = Date.now();
+  sc.addEventListener("click", e=>{
+    if(e.target.closest("[data-close]")) return closeSheet();
+    if(e.target===sc && Date.now()-sheetOpenedAt > 600) closeSheet();
+  });
   onMount && onMount(sc);
 }
 function closeSheet(){ $("#modal").innerHTML=""; }
 
 /* ===================== ADMIN (tekan logo 3 kali) =====================
    Kod admin TIDAK disimpan di sini — ia disemak oleh Google Apps Script. */
-let taps = 0, tapT = null, adminTimer = null, adminData = [], kodAdmin = "";
+let taps = 0, tapT = null, lastTap = 0, adminTimer = null, adminData = [], kodAdmin = "", sheetOpenedAt = 0;
 const brandEl = $("#brand"), logoEl = brandEl.querySelector(".logo");
-brandEl.addEventListener("pointerdown", e=>{
-  e.preventDefault();
+/* Tekan 3 kali pada LOGO / nama "Hari Sukan Negara" di atas ATAU tajuk besar "Kuiz Hari Sukan Negara".
+   Dengar pointer, touch & click (ada pelayar yang hanya hantar salah satu); dedupe ikut masa. */
+function onTap(e){
+  const now = Date.now();
+  if(now - lastTap < 120) return;          // event berganda dari tekanan yang sama
+  lastTap = now;
   if($("#modal").firstChild) return;
-  taps++; clearTimeout(tapT); tapT = setTimeout(()=>taps=0, 1500);
+  taps++; clearTimeout(tapT); tapT = setTimeout(()=>taps=0, 1600);
   logoEl.classList.remove("bump"); void logoEl.offsetWidth; logoEl.classList.add("bump");
-  if(taps>=3){ taps=0; clearTimeout(tapT); setTimeout(askCode, 60); }
+  if(taps>=3){ taps=0; clearTimeout(tapT); setTimeout(askCode, 80); }
+}
+[brandEl, document.querySelector(".hero h1")].forEach(el=>{
+  el.style.touchAction = "manipulation";
+  el.style.userSelect = "none"; el.style.webkitUserSelect = "none";
+  el.addEventListener("pointerdown", onTap);
+  el.addEventListener("touchstart", onTap, {passive:true});
+  el.addEventListener("mousedown", onTap);
+  el.addEventListener("dblclick", e=>e.preventDefault());
 });
-brandEl.addEventListener("dblclick", e=>e.preventDefault());
+/* Jalan masuk ganti: buka pautan dengan #admin di hujung */
+function cekHash(){ if(location.hash.toLowerCase()==="#admin"){ history.replaceState(null,"",location.pathname+location.search); setTimeout(askCode, 200); } }
+window.addEventListener("hashchange", cekHash);
 
 function askCode(){
   sheet(`<h3>Ruang Admin</h3><p>Masukkan kod akses untuk melihat keputusan guru.</p>
@@ -747,6 +765,7 @@ updMode();
   if(s && s.status==="selesai"){ sesi = s; return showResult(); }
   renderResume(); show("vHome");
 })();
+cekHash();
 </script>
 </body>
 </html>
